@@ -2,18 +2,19 @@
 
 # flake8: noqa F401
 from collections.abc import Callable
+from typing import Optional
 
 import numpy as np
 
-from vendeeglobe import (
-    Checkpoint,
-    Heading,
-    Instructions,
-    Location,
-    Vector,
-    config,
-)
-from vendeeglobe.utils import distance_on_surface
+from vendeeglobe import Heading, Instructions
+
+from enum import Enum
+
+
+class Turn(Enum):
+    NO = 0
+    RIGHT = 1
+    LEFT = 2
 
 
 class Bot:
@@ -21,26 +22,18 @@ class Bot:
     This is the ship-controlling bot that will be instantiated for the competition.
     """
 
+    intended_heading: float
+    tack_within_degrees: float
+    time_adjusted: Optional[float]
+    last_turn: Turn
+
     def __init__(self):
-        self.team = "TeamName"  # This is your team name
-        # This is the course that the ship has to follow
-        self.course = [
-            Checkpoint(latitude=43.797109, longitude=-11.264905, radius=50),
-            Checkpoint(longitude=-29.908577, latitude=17.999811, radius=50),
-            Checkpoint(latitude=-11.441808, longitude=-29.660252, radius=50),
-            Checkpoint(longitude=-63.240264, latitude=-61.025125, radius=50),
-            Checkpoint(latitude=2.806318, longitude=-168.943864, radius=1990.0),
-            Checkpoint(latitude=-62.052286, longitude=169.214572, radius=50.0),
-            Checkpoint(latitude=-15.668984, longitude=77.674694, radius=1190.0),
-            Checkpoint(latitude=-39.438937, longitude=19.836265, radius=50.0),
-            Checkpoint(latitude=14.881699, longitude=-21.024326, radius=50.0),
-            Checkpoint(latitude=44.076538, longitude=-18.292936, radius=50.0),
-            Checkpoint(
-                latitude=config.start.latitude,
-                longitude=config.start.longitude,
-                radius=5,
-            ),
-        ]
+        self.team = "Venefyxatu"  # This is your team name
+        self.intended_heading = 180.0
+        self.tack_within_degrees = 45.0
+        self.tack_time_hours = 4.0
+        self.time_adjusted = None
+        self.last_turn = Turn.NO
 
     def run(
         self,
@@ -101,36 +94,190 @@ class Bot:
         """
         # Initialize the instructions
         instructions = Instructions()
+        instructions.heading = Heading(self.intended_heading)
+        instructions.sail = 1
 
-        # TODO: Remove this, it's only for testing =================
         current_position_forecast = forecast(
             latitudes=latitude, longitudes=longitude, times=0
         )
-        current_position_terrain = world_map(latitudes=latitude, longitudes=longitude)
-        # ===========================================================
 
-        # Go through all checkpoints and find the next one to reach
-        for ch in self.course:
-            # Compute the distance to the checkpoint
-            dist = distance_on_surface(
-                longitude1=longitude,
-                latitude1=latitude,
-                longitude2=ch.longitude,
-                latitude2=ch.latitude,
-            )
-            # Consider slowing down if the checkpoint is close
-            jump = dt * np.linalg.norm(speed)
-            if dist < 2.0 * ch.radius + jump:
-                instructions.sail = min(ch.radius / jump, 1)
-            else:
-                instructions.sail = 1.0
-            # Check if the checkpoint has been reached
-            if dist < ch.radius:
-                ch.reached = True
-            if not ch.reached:
-                instructions.location = Location(
-                    longitude=ch.longitude, latitude=ch.latitude
-                )
-                break
+        if correction := self.catch_wind(heading, current_position_forecast, t):
+            instructions.heading = correction
 
+        # print(f"long: {np.round(longitude, 1)}, lat: {np.round(latitude, 1)}")
+        if np.round(longitude, 1) == -20.0 and self.intended_heading != 90.0:
+            print("Turning north")
+            self.intended_heading = 90.0
         return instructions
+
+    def should_turn(
+        self,
+        wind_heading: float,
+        turn_above_heading: float,
+        turn_below_heading: float,
+        current_heading: float,
+    ) -> Turn:
+        if (
+            wind_heading > turn_above_heading
+            and wind_heading < turn_below_heading
+            and self.within_acceptable_deviation(current_heading)
+        ):
+            print(
+                f"Should turn left or tack right: {wind_heading} > {turn_above_heading} and {wind_heading} < {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            )
+            return Turn.LEFT
+        elif (
+            wind_heading < turn_above_heading
+            and wind_heading > turn_below_heading
+            and current_heading != self.intended_heading
+        ):
+            print(
+                f"Should turn right or tack left: {wind_heading} < {turn_above_heading} and {wind_heading} > {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            )
+            return Turn.RIGHT
+
+        return Turn.NO
+
+    def catch_wind(
+        self,
+        current_heading: float,
+        current_position_forecast: tuple[float, float],
+        timestamp: float,
+    ) -> Optional[Heading]:
+        """
+        Turn to catch the wind if we're sailing too much against it
+
+        Returns the new Heading to follow (max within 30 degrees of current)
+        """
+
+        wind_heading = self.wind_heading(*current_position_forecast)
+        # turn_below_heading = 30.0  # for an intended_heading of 180.0
+        # turn_above_heading = 330.0  # for an intended_heading of 180.0
+        turn_below_heading = self.plus_wrap(
+            self.plus_wrap(180.0, self.intended_heading), self.tack_within_degrees
+        )
+        turn_above_heading = self.minus_wrap(
+            self.plus_wrap(180.0, self.intended_heading), self.tack_within_degrees
+        )
+
+        should_turn = self.should_turn(
+            wind_heading, turn_above_heading, turn_below_heading, current_heading
+        )
+
+        if should_turn == Turn.LEFT and (
+            not self.time_adjusted
+            or (timestamp - self.tack_time_hours) > self.time_adjusted
+        ):
+            if turn_above_heading < wind_heading < self.intended_heading:
+                # print(
+                #     f"Adjusting: turning left ({wind_heading} > {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
+                # )
+                new_heading = self.plus_wrap(
+                    current_heading,
+                    self.plus_wrap(
+                        wind_heading,
+                        self.plus_wrap(self.intended_heading, 180.0),
+                    ),
+                )
+                print(
+                    f"New heading: {self.plus_wrap(self.intended_heading, 180.0)} - {self.minus_wrap(wind_heading, self.plus_wrap(self.intended_heading, 180.0))} = {new_heading}"
+                )
+                if self.last_turn == Turn.LEFT:
+                    self.last_turn = Turn.RIGHT
+                    new_heading = self.minus_wrap(new_heading, 90.0)
+                    print(f"Tacking to {new_heading}")
+                else:
+                    self.last_turn = Turn.LEFT
+                self.time_adjusted = timestamp
+                return Heading(new_heading)
+            elif self.intended_heading < wind_heading < turn_below_heading:
+                # print(
+                #     f"Adjusting: turning right ({wind_heading} < {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
+                # )
+                new_heading = self.minus_wrap(
+                    current_heading,
+                    self.minus_wrap(
+                        wind_heading,
+                        self.plus_wrap(self.intended_heading, 180.0),
+                    ),
+                )
+                print(
+                    f"New heading: {self.plus_wrap(self.intended_heading, 180.0)} - {self.plus_wrap(wind_heading, self.plus_wrap(self.intended_heading, 180.0))} = {new_heading}"
+                )
+                print(f"New heading: {new_heading}")
+                if self.last_turn == Turn.RIGHT:
+                    self.last_turn = Turn.LEFT
+                    new_heading = self.plus_wrap(new_heading, 90.0)
+                    print(f"Tacking to {new_heading}")
+                else:
+                    self.last_turn = Turn.RIGHT
+                self.time_adjusted = timestamp
+                return Heading(new_heading)
+        elif should_turn == Turn.RIGHT:
+            print(
+                f"{wind_heading} < {turn_above_heading} and {wind_heading} > {turn_below_heading}: resuming intended heading"
+            )
+            self.time_adjusted = None
+            return Heading(self.intended_heading)
+        else:
+            print(
+                f"Should not turn: {wind_heading} !> {turn_above_heading} and {wind_heading} !< {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            )
+        # elif (
+        #     wind_heading < self.minus_wrap(current_heading, 90.0)
+        #     and current_heading != self.intended_heading
+        # ):
+        #     print("Resuming original heading")
+        #     return Heading(self.intended_heading)
+        # elif (
+        #     wind_heading > self.plus_wrap(current_heading, 90.0)
+        #     and current_heading != self.intended_heading
+        # ):
+        #     print("Resuming original heading")
+        #     return Heading(self.intended_heading)
+
+    def minus_wrap(self, a: float, b: float, log: bool = False) -> float:
+        """a - b, wrapped around to 360.0 at 0.0"""
+        res = a - b
+        if log:
+            print(f"minus_wrap: {a} - {b} = {res}")
+        if res < 0.0:
+            if log:
+                print(f"minus_wrap: {res} + 360.0 = {res + 360.0}")
+            return res + 360.0
+        else:
+            return res
+
+    def plus_wrap(self, a: float, b: float, log: bool = False) -> float:
+        """a + b, wrapped around at 360.0"""
+        res = a + b
+        if log:
+            print(f"plus_wrap: {a} + {b} = {res}")
+        if res > 360.0:
+            if log:
+                print(f"plus_wrap: {res} - 360.0 = {res - 360.0}")
+            return res - 360.0
+        else:
+            return res
+
+    def within_acceptable_deviation(self, current_heading: float) -> bool:
+        if current_heading > self.minus_wrap(
+            self.intended_heading, 45.0
+        ) and current_heading < self.plus_wrap(self.intended_heading, 45.0):
+            return True
+        else:
+            return False
+
+    def wind_heading(self, horizontal: float, vertical: float) -> float:
+        # r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
+        phi = np.rad2deg(np.arctan2(vertical, horizontal))
+        # print(f"Wind r: {r}, wind phi: {phi}")
+        if phi < 0:
+            phi = -phi
+        else:
+            phi = phi + 180.0
+
+        if phi == 0.0:
+            return phi
+        else:
+            return 360.0 - phi
