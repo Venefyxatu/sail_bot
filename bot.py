@@ -70,6 +70,7 @@ class Bot:
     course_plan: dict[Any, Any]
     actual_course: dict[Any, Any]
     tack: bool
+    no_tack_zone: bool
     coord_navigation: bool
     current_nav_location: int
     nav_location_reached: bool
@@ -87,6 +88,7 @@ class Bot:
         self.course_plan = {NavLatitudes.AMERICAS: {"N": 90.0, "S": 250.0}}
         self.actual_course = {NavLatitudes.AMERICAS: {}}
         self.tack = True
+        self.no_tack_zone = False
         self.coord_navigation = False
         self.current_nav_location = 0
         self.nav_location_reached = False
@@ -161,9 +163,9 @@ class Bot:
 
         wind_heading = self.wind_heading(*current_position_forecast)
 
-        print(
-            f"{np.round(t, 2)} :: long: {np.round(longitude, 1)}, lat: {np.round(latitude, 1)}. Tack: {self.tack}"
-        )
+        # print(
+        #     f"{np.round(t, 2)} :: long: {np.round(longitude, 1)}, lat: {np.round(latitude, 1)}. Tack: {self.tack}"
+        # )
         # Initialize the instructions
         instructions = Instructions()
         instructions.heading = Heading(self.intended_heading)
@@ -173,22 +175,22 @@ class Bot:
             and longitude == self.previous_long
             or self.unstick_mode
         ):
-            print("Trying to unstick")
+            # print("Trying to unstick")
             self.unstick(heading, np.round(t, 1))
             if t > self.unstick_mode["time"] and t < self.unstick_mode["time"] + 2.0:
-                print(f"Sailing back to {self.unstick_mode['back']}")
+                # print(f"Sailing back to {self.unstick_mode['back']}")
                 instructions.heading = Heading(self.unstick_mode["back"])
-                print(f"Instructions: {instructions}")
+                # print(f"Instructions: {instructions}")
                 return instructions
             elif (
                 t > self.unstick_mode["time"] + 2.0
                 and t < self.unstick_mode["time"] + 4.0
             ):
-                print(f"Sailing angled to {self.unstick_mode['turn']}")
+                # print(f"Sailing angled to {self.unstick_mode['turn']}")
                 instructions.heading = Heading(self.unstick_mode["turn"])
                 return instructions
             else:
-                print("Are we unstuck yet?")
+                # print("Are we unstuck yet?")
                 self.unstick_mode = {}
                 self.tack = True
 
@@ -197,10 +199,10 @@ class Bot:
 
         if self.coord_navigation:
             if self.coord_navigate(instructions, longitude, latitude):
-                print(f"Navigating to {instructions}")
+                # print(f"Navigating to {instructions}")
                 return instructions
 
-        if self.tack:
+        if self.tack and not self.no_tack_zone:
             if correction := self.catch_wind(heading, wind_heading, t):
                 instructions.heading = correction
 
@@ -208,12 +210,12 @@ class Bot:
         #     print("Turning north")
         #     self.intended_heading = 90.0
         self.navigate(np.round(latitude, 1), np.round(longitude, 1), wind_heading)
-        print(f"Instructions: {instructions}")
+        # print(f"Instructions: {instructions}")
         return instructions
 
     def unstick(self, current_heading: float, time: float):
         if self.unstick_mode:
-            print("unstick already set")
+            # print("unstick already set")
             return
         self.tack = False
         self.unstick_mode["back"] = self.minus_wrap(
@@ -231,10 +233,10 @@ class Bot:
         instructions.heading = None
 
         if not isinstance(NAV_LOCATIONS[self.current_nav_location], float):
-            print(f"Not a float: {NAV_LOCATIONS[self.current_nav_location]}")
+            # print(f"Not a float: {NAV_LOCATIONS[self.current_nav_location]}")
             instructions.location = NAV_LOCATIONS[self.current_nav_location]
         else:
-            print(f"Float: {NAV_LOCATIONS[self.current_nav_location]}")
+            # print(f"Float: {NAV_LOCATIONS[self.current_nav_location]}")
             self.nav_location_reached = False
             instructions.location = None
             self.coord_navigation = False
@@ -242,7 +244,7 @@ class Bot:
             instructions.heading = Heading(self.intended_heading)
             return False
         if self.nav_location_reached:
-            print(f"Reached {Location(np.round(longitude, 1), np.round(latitude, 1))}")
+            # print(f"Reached {Location(np.round(longitude, 1), np.round(latitude, 1))}")
             self.current_nav_location += 1
             self.nav_location_reached = False
         else:
@@ -254,7 +256,7 @@ class Bot:
 
     def navigate(self, lat: float, long: float, wind_heading: float) -> None:
         if long == NavLatitudes.AMERICAS and self.intended_heading == 180.0:
-            print("Checking prevailing wind direction")
+            # print("Checking prevailing wind direction")
             self.intended_heading = 220.0
         # elif (
         #     long == NavLatitudes.CENTRAL_AMERICA_ONE and self.intended_heading == 200.0
@@ -281,10 +283,12 @@ class Bot:
             self.current_nav_location = 6
         elif long == NavLatitudes.RED_SEA and self.intended_heading == 116.0:
             self.intended_heading = 120.0
+            self.no_tack_zone = True
         elif long == NavLatitudes.RED_SEA_TWO and self.intended_heading == 120.0:
             self.coord_navigation = True
             self.current_nav_location = 9
         elif long == NavLatitudes.MEDITTERANEAN and self.intended_heading == 120.0:
+            self.no_tack_zone = False
             self.intended_heading = 170.0
         elif long == NavLatitudes.MEDITTERANEAN_TWO and self.intended_heading == 170.0:
             self.intended_heading = 117.0
@@ -315,18 +319,18 @@ class Bot:
             and wind_heading < turn_below_heading
             and self.within_acceptable_deviation(current_heading)
         ):
-            print(
-                f"Should turn left or tack right: {wind_heading} > {turn_above_heading} and {wind_heading} < {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
-            )
+            # print(
+            #     f"Should turn left or tack right: {wind_heading} > {turn_above_heading} and {wind_heading} < {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            # )
             return Turn.LEFT
         elif (
             wind_heading < turn_above_heading
             and wind_heading > turn_below_heading
             and current_heading != self.intended_heading
         ):
-            print(
-                f"Should turn right or tack left: {wind_heading} < {turn_above_heading} and {wind_heading} > {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
-            )
+            # print(
+            #     f"Should turn right or tack left: {wind_heading} < {turn_above_heading} and {wind_heading} > {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            # )
             return Turn.RIGHT
 
         # print(
@@ -363,14 +367,14 @@ class Bot:
             not self.time_adjusted
             or (timestamp - self.tack_time_hours) > self.time_adjusted
         ):
-            print(
-                f"Adjusting: turning left ({wind_heading} > {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
-            )
+            # print(
+            #     f"Adjusting: turning left ({wind_heading} > {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
+            # )
             adjustment = 45.0
             new_heading = self.plus_wrap(self.intended_heading, adjustment)
             # adjustment = wind_heading - turn_above_heading + 40.0
             # new_heading = self.plus_wrap(current_heading, adjustment)
-            print(f"Adjusting {current_heading} by {adjustment} for {new_heading}")
+            # print(f"Adjusting {current_heading} by {adjustment} for {new_heading}")
             # new_heading = self.plus_wrap(
             #     current_heading,
             #     self.plus_wrap(
@@ -378,28 +382,28 @@ class Bot:
             #         self.plus_wrap(self.intended_heading, 180.0),
             #     ),
             # )
-            print(f"New heading: {new_heading}")
+            # print(f"New heading: {new_heading}")
             if self.last_turn == Turn.LEFT:
                 self.last_turn = Turn.RIGHT
                 new_heading = self.minus_wrap(new_heading, 90.0)
-                print(f"Tacking to {new_heading}")
+                # print(f"Tacking to {new_heading}")
             else:
                 self.last_turn = Turn.LEFT
-                print("Not tacking - last turn was left")
+                # print("Not tacking - last turn was left")
             self.time_adjusted = timestamp
             return Heading(new_heading)
         elif should_turn == Turn.RIGHT and (
             not self.time_adjusted
             or (timestamp - self.tack_time_hours) > self.time_adjusted
         ):
-            print(
-                f"Adjusting: turning right ({wind_heading} < {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
-            )
+            # print(
+            #     f"Adjusting: turning right ({wind_heading} < {turn_above_heading} and {current_heading} within acceptable deviation of {self.intended_heading})"
+            # )
             adjustment = 45.0
             new_heading = self.minus_wrap(self.intended_heading, adjustment)
             # adjustment = turn_below_heading - wind_heading + 40.0
             # new_heading = self.minus_wrap(current_heading, adjustment)
-            print(f"Adjusting {current_heading} by {adjustment} for {new_heading}")
+            # print(f"Adjusting {current_heading} by {adjustment} for {new_heading}")
             # new_heading = self.minus_wrap(
             #     current_heading,
             #     self.minus_wrap(
@@ -407,21 +411,21 @@ class Bot:
             #         self.plus_wrap(self.intended_heading, 180.0),
             #     ),
             # )
-            print(f"New heading: {new_heading}")
+            # print(f"New heading: {new_heading}")
             if self.last_turn == Turn.RIGHT:
                 self.last_turn = Turn.LEFT
                 new_heading = self.plus_wrap(new_heading, 90.0)
-                print(f"Tacking to {new_heading}")
+                # print(f"Tacking to {new_heading}")
             else:
                 self.last_turn = Turn.RIGHT
-                print("Not tacking - last turn was right")
+                # print("Not tacking - last turn was right")
             self.time_adjusted = timestamp
             return Heading(new_heading)
         else:
             self.time_adjusted = None
-            print(
-                f"Should not turn: {wind_heading} !> {turn_above_heading} and {wind_heading} !< {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
-            )
+            # print(
+            #     f"Should not turn: {wind_heading} !> {turn_above_heading} and {wind_heading} !< {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            # )
             return Heading(self.intended_heading)
 
     def minus_wrap(self, a: float, b: float) -> float:
@@ -451,12 +455,15 @@ class Bot:
     def wind_heading(self, horizontal: float, vertical: float) -> float:
         # r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
         phi = np.rad2deg(np.arctan2(vertical, horizontal))
-        # print(f"Wind r: {r}, wind phi: {phi}")
+        # orig_phi = phi
         if phi < 0:
             phi = -phi
-        else:
-            phi = phi + 180.0
+        # else:
+        #     phi = phi + 180.0
 
+        # print(
+        #     f"Wind r: {r}, wind phi: {orig_phi}, corrected phi: {phi}, return heading {360.0-phi if phi != 0.0 else phi}"
+        # )
         if phi == 0.0:
             return phi
         else:
