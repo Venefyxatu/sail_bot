@@ -295,7 +295,7 @@ class Bot:
         elif (
             long == NavLatitudes.MEDITTERANEAN_THREE and self.intended_heading == 117.0
         ):
-            self.intended_heading = 187.0
+            self.intended_heading = 187.7
         elif long == NavLatitudes.MEDITTERANEAN_FOUR and self.intended_heading == 187.0:
             self.coord_navigation = True
             self.current_nav_location = 11
