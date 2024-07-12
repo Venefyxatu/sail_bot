@@ -57,7 +57,7 @@ class Bot:
     unstick_mode: dict[Any, Any]
 
     def __init__(self):
-        self.team = "Open Brain Boat"  # This is your team name
+        self.team = "Big Brain Boat"  # This is your team name
         self.intended_heading = 180.0
         self.tack_within_degrees = 45.0
         self.tack_time_hours = 6.0
