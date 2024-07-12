@@ -49,7 +49,7 @@ class NavLatitudes(float, Enum):
     MEDITTERANEAN_FOUR = -3.9
     GIBRALTAR = -6.2
     PORTUGAL = -10.2
-    FRANCE = -9.8
+    FRANCE = -9.9
 
 
 class Turn(Enum):
@@ -287,8 +287,8 @@ class Bot:
         elif (
             long == NavLatitudes.MEDITTERANEAN_THREE and self.intended_heading == 117.0
         ):
-            self.intended_heading = 185.0
-        elif long == NavLatitudes.MEDITTERANEAN_FOUR and self.intended_heading == 185.0:
+            self.intended_heading = 187.0
+        elif long == NavLatitudes.MEDITTERANEAN_FOUR and self.intended_heading == 187.0:
             self.coord_navigation = True
             self.current_nav_location = 11
         elif long == NavLatitudes.GIBRALTAR and self.intended_heading == 190.0:
