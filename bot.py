@@ -146,9 +146,7 @@ class Bot:
             self.unstick(heading, np.round(t, 1))
             if t > self.unstick_mode["time"] and t < self.unstick_mode["time"] + 2.0:
                 print(f"Sailing back to {self.unstick_mode['back']}")
-                instructions = Instructions()
                 instructions.heading = Heading(self.unstick_mode["back"])
-                instructions.sail = 1
                 print(f"Instructions: {instructions}")
                 return instructions
             elif (
@@ -156,9 +154,7 @@ class Bot:
                 and t < self.unstick_mode["time"] + 4.0
             ):
                 print(f"Sailing angled to {self.unstick_mode['turn']}")
-                instructions = Instructions()
                 instructions.heading = Heading(self.unstick_mode["turn"])
-                instructions.sail = 1
                 return instructions
             else:
                 print("Are we unstuck yet?")
