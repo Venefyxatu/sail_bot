@@ -4,6 +4,8 @@
 from collections.abc import Callable
 from typing import Optional, Any
 
+import random
+
 import numpy as np
 
 from vendeeglobe import Heading, Instructions, Location
@@ -18,6 +20,15 @@ NAV_LOCATIONS = [
     190.0,
     Location(80.0, -22.5),
     120.0,
+    Location(55.0, 14.0),
+    Location(43.7, 12.2),
+    116.0,
+    Location(33.9, 27.6),
+    120.0,
+    Location(-5.3, 36.0),
+    190.0,
+    Location(-1.8, 46.5),
+    None,
 ]
 
 
@@ -29,6 +40,16 @@ class NavLatitudes(float, Enum):
     SOUTH_WEST_AUSTRALIA = 133.0
     INDIAN_OCEAN = 100.0
     INDIAN_OCEAN_TWO = 90.0
+    ARABIAN_SEA = 60.0
+    RED_SEA = 40.0
+    RED_SEA_TWO = 35.0
+    MEDITTERANEAN = 31.4
+    MEDITTERANEAN_TWO = 12.7
+    MEDITTERANEAN_THREE = 11.0
+    MEDITTERANEAN_FOUR = -3.9
+    GIBRALTAR = -6.2
+    PORTUGAL = -10.2
+    FRANCE = -9.8
 
 
 class Turn(Enum):
@@ -131,12 +152,18 @@ class Bot:
             Optionally, a sail value between 0 and 1 can be set.
         """
 
+        if NAV_LOCATIONS[self.current_nav_location] is None:
+            instructions = Instructions(sail=0)
+            return instructions
         current_position_forecast = forecast(
             latitudes=latitude, longitudes=longitude, times=0
         )
 
         wind_heading = self.wind_heading(*current_position_forecast)
 
+        print(
+            f"{np.round(t, 2)} :: long: {np.round(longitude, 1)}, lat: {np.round(latitude, 1)}. Tack: {self.tack}"
+        )
         # Initialize the instructions
         instructions = Instructions()
         instructions.heading = Heading(self.intended_heading)
@@ -173,9 +200,6 @@ class Bot:
             if correction := self.catch_wind(heading, wind_heading, t):
                 instructions.heading = correction
 
-        print(
-            f"{np.round(t, 2)} :: long: {np.round(longitude, 1)}, lat: {np.round(latitude, 1)}"
-        )
         # if np.round(longitude, 1) == -20.0 and self.intended_heading != 90.0:
         #     print("Turning north")
         #     self.intended_heading = 90.0
@@ -188,7 +212,9 @@ class Bot:
             print("unstick already set")
             return
         self.tack = False
-        self.unstick_mode["back"] = self.minus_wrap(current_heading, 135.0)
+        self.unstick_mode["back"] = self.minus_wrap(
+            current_heading, random.choice([135.0, 225.0])
+        )
         self.unstick_mode["turn"] = self.plus_wrap(
             self.minus_wrap(current_heading, 180.0), 90.0
         )
@@ -199,10 +225,12 @@ class Bot:
     ) -> bool:
         """returns True to continue coord_navigating, False to resume heading navigation"""
         instructions.heading = None
+
         if not isinstance(NAV_LOCATIONS[self.current_nav_location], float):
             print(f"Not a float: {NAV_LOCATIONS[self.current_nav_location]}")
             instructions.location = NAV_LOCATIONS[self.current_nav_location]
         else:
+            print(f"Float: {NAV_LOCATIONS[self.current_nav_location]}")
             self.nav_location_reached = False
             instructions.location = None
             self.coord_navigation = False
@@ -210,6 +238,7 @@ class Bot:
             instructions.heading = Heading(self.intended_heading)
             return False
         if self.nav_location_reached:
+            print(f"Reached {Location(np.round(longitude, 1), np.round(latitude, 1))}")
             self.current_nav_location += 1
             self.nav_location_reached = False
         else:
@@ -242,6 +271,33 @@ class Bot:
             self.intended_heading = 180.0
         elif long == NavLatitudes.INDIAN_OCEAN_TWO and self.intended_heading == 180.0:
             self.coord_navigation = True
+            self.current_nav_location = 4
+        elif long == NavLatitudes.ARABIAN_SEA and self.intended_heading == 120.0:
+            self.coord_navigation = True
+            self.current_nav_location = 6
+        elif long == NavLatitudes.RED_SEA and self.intended_heading == 116.0:
+            self.intended_heading = 120.0
+        elif long == NavLatitudes.RED_SEA_TWO and self.intended_heading == 120.0:
+            self.coord_navigation = True
+            self.current_nav_location = 9
+        elif long == NavLatitudes.MEDITTERANEAN and self.intended_heading == 120.0:
+            self.intended_heading = 170.0
+        elif long == NavLatitudes.MEDITTERANEAN_TWO and self.intended_heading == 170.0:
+            self.intended_heading = 117.0
+        elif (
+            long == NavLatitudes.MEDITTERANEAN_THREE and self.intended_heading == 117.0
+        ):
+            self.intended_heading = 185.0
+        elif long == NavLatitudes.MEDITTERANEAN_FOUR and self.intended_heading == 185.0:
+            self.coord_navigation = True
+            self.current_nav_location = 11
+        elif long == NavLatitudes.GIBRALTAR and self.intended_heading == 190.0:
+            self.intended_heading = 170.0
+        elif long == NavLatitudes.PORTUGAL and self.intended_heading == 170.0:
+            self.intended_heading = 89.0
+        elif long == NavLatitudes.FRANCE and self.intended_heading == 89.0:
+            self.coord_navigation = True
+            self.current_nav_location = 13
 
     def should_turn(
         self,
