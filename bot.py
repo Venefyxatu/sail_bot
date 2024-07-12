@@ -168,7 +168,11 @@ class Bot:
         instructions = Instructions()
         instructions.heading = Heading(self.intended_heading)
         instructions.sail = 1
-        if latitude == self.previous_lat and longitude == self.previous_long:
+        if (
+            latitude == self.previous_lat
+            and longitude == self.previous_long
+            or self.unstick_mode
+        ):
             print("Trying to unstick")
             self.unstick(heading, np.round(t, 1))
             if t > self.unstick_mode["time"] and t < self.unstick_mode["time"] + 2.0:
