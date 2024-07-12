@@ -45,8 +45,8 @@ class NavLatitudes(float, Enum):
     RED_SEA_TWO = 35.0
     MEDITTERANEAN = 31.4
     MEDITTERANEAN_TWO = 12.7
-    MEDITTERANEAN_THREE = 11.0
-    MEDITTERANEAN_FOUR = -1.1
+    MEDITTERANEAN_THREE = 11.2
+    MEDITTERANEAN_FOUR = -0.2
     GIBRALTAR = -6.2
     PORTUGAL = -10.2
     FRANCE = -9.9
@@ -453,17 +453,17 @@ class Bot:
             return False
 
     def wind_heading(self, horizontal: float, vertical: float) -> float:
-        r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
+        # r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
         phi = np.rad2deg(np.arctan2(vertical, horizontal))
-        orig_phi = phi
+        # orig_phi = phi
         if phi < 0:
             phi = -phi
         # else:
         #     phi = phi + 180.0
 
-        print(
-            f"Wind r: {r}, wind phi: {orig_phi}, corrected phi: {phi}, return heading {360.0-phi if phi != 0.0 else phi}"
-        )
+        # print(
+        #     f"Wind r: {r}, wind phi: {orig_phi}, corrected phi: {phi}, return heading {360.0-phi if phi != 0.0 else phi}"
+        # )
         if phi == 0.0:
             return phi
         else:
