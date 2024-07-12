@@ -281,10 +281,12 @@ class Bot:
             self.current_nav_location = 6
         elif long == NavLatitudes.RED_SEA and self.intended_heading == 116.0:
             self.intended_heading = 120.0
+            self.tack = False
         elif long == NavLatitudes.RED_SEA_TWO and self.intended_heading == 120.0:
             self.coord_navigation = True
             self.current_nav_location = 9
         elif long == NavLatitudes.MEDITTERANEAN and self.intended_heading == 120.0:
+            self.tack = True
             self.intended_heading = 170.0
         elif long == NavLatitudes.MEDITTERANEAN_TWO and self.intended_heading == 170.0:
             self.intended_heading = 117.0
