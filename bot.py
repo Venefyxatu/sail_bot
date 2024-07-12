@@ -200,7 +200,15 @@ class Bot:
         """returns True to continue coord_navigating, False to resume heading navigation"""
         instructions.heading = None
         if not isinstance(NAV_LOCATIONS[self.current_nav_location], float):
+            print(f"Not a float: {NAV_LOCATIONS[self.current_nav_location]}")
             instructions.location = NAV_LOCATIONS[self.current_nav_location]
+        else:
+            self.nav_location_reached = False
+            instructions.location = None
+            self.coord_navigation = False
+            self.intended_heading = NAV_LOCATIONS[self.current_nav_location]
+            instructions.heading = Heading(self.intended_heading)
+            return False
         if self.nav_location_reached:
             self.current_nav_location += 1
             self.nav_location_reached = False
@@ -209,12 +217,6 @@ class Bot:
                 Location(np.round(longitude, 1), np.round(latitude, 1))
                 == NAV_LOCATIONS[self.current_nav_location]
             )
-        if isinstance(NAV_LOCATIONS[self.current_nav_location], float):
-            instructions.location = None
-            self.coord_navigation = False
-            self.intended_heading = NAV_LOCATIONS[self.current_nav_location]
-            instructions.heading = Heading(self.intended_heading)
-            return False
         return True
 
     def navigate(self, lat: float, long: float, wind_heading: float) -> None:
