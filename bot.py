@@ -329,9 +329,9 @@ class Bot:
             )
             return Turn.RIGHT
 
-        # print(
-        #     f"Should not turn: Wind: {wind_heading} Turn above: {turn_above_heading} Turn below: {turn_below_heading} Current: {current_heading} Intended: {self.intended_heading}"
-        # )
+        print(
+            f"Should not turn: Wind: {wind_heading} Turn above: {turn_above_heading} Turn below: {turn_below_heading} Current: {current_heading} Intended: {self.intended_heading}"
+        )
         return Turn.NO
 
     def catch_wind(
@@ -419,9 +419,9 @@ class Bot:
             return Heading(new_heading)
         else:
             self.time_adjusted = None
-            print(
-                f"Should not turn: {wind_heading} !> {turn_above_heading} and {wind_heading} !< {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
-            )
+            # print(
+            #     f"Should not turn: {wind_heading} !> {turn_above_heading} and {wind_heading} !< {turn_below_heading} and {current_heading} <=> {self.intended_heading}"
+            # )
             return Heading(self.intended_heading)
 
     def minus_wrap(self, a: float, b: float) -> float:
@@ -449,14 +449,17 @@ class Bot:
             return False
 
     def wind_heading(self, horizontal: float, vertical: float) -> float:
-        # r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
+        r = np.sqrt(pow(horizontal, 2) + pow(vertical, 2))
         phi = np.rad2deg(np.arctan2(vertical, horizontal))
-        # print(f"Wind r: {r}, wind phi: {phi}")
+        orig_phi = phi
         if phi < 0:
             phi = -phi
-        else:
-            phi = phi + 180.0
+        # else:
+        #     phi = phi + 180.0
 
+        print(
+            f"Wind r: {r}, wind phi: {orig_phi}, corrected phi: {phi}, return heading {360.0-phi if phi != 0.0 else phi}"
+        )
         if phi == 0.0:
             return phi
         else:
