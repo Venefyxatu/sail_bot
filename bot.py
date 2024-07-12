@@ -46,7 +46,7 @@ class NavLatitudes(float, Enum):
     MEDITTERANEAN = 31.4
     MEDITTERANEAN_TWO = 12.7
     MEDITTERANEAN_THREE = 11.0
-    MEDITTERANEAN_FOUR = -3.9
+    MEDITTERANEAN_FOUR = -1.1
     GIBRALTAR = -6.2
     PORTUGAL = -10.2
     FRANCE = -9.9
@@ -70,6 +70,7 @@ class Bot:
     course_plan: dict[Any, Any]
     actual_course: dict[Any, Any]
     tack: bool
+    no_tack_zone: bool
     coord_navigation: bool
     current_nav_location: int
     nav_location_reached: bool
@@ -87,6 +88,7 @@ class Bot:
         self.course_plan = {NavLatitudes.AMERICAS: {"N": 90.0, "S": 250.0}}
         self.actual_course = {NavLatitudes.AMERICAS: {}}
         self.tack = True
+        self.no_tack_zone = False
         self.coord_navigation = False
         self.current_nav_location = 0
         self.nav_location_reached = False
@@ -200,7 +202,7 @@ class Bot:
                 print(f"Navigating to {instructions}")
                 return instructions
 
-        if self.tack:
+        if self.tack and not self.no_tack_zone:
             if correction := self.catch_wind(heading, wind_heading, t):
                 instructions.heading = correction
 
@@ -281,12 +283,12 @@ class Bot:
             self.current_nav_location = 6
         elif long == NavLatitudes.RED_SEA and self.intended_heading == 116.0:
             self.intended_heading = 120.0
-            self.tack = False
+            self.no_tack_zone = True
         elif long == NavLatitudes.RED_SEA_TWO and self.intended_heading == 120.0:
             self.coord_navigation = True
             self.current_nav_location = 9
         elif long == NavLatitudes.MEDITTERANEAN and self.intended_heading == 120.0:
-            self.tack = True
+            self.no_tack_zone = False
             self.intended_heading = 170.0
         elif long == NavLatitudes.MEDITTERANEAN_TWO and self.intended_heading == 170.0:
             self.intended_heading = 117.0
